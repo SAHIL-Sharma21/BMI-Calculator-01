@@ -3,16 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { bmiInMetric } from "@/services/logic";
+import { bmiInMetric, bmiInImperial } from "@/services/logic";
 import React, { useState } from "react";
 import { Result } from "./Result";
+import { History } from "@/services/history";
+import { Switch } from "@/components/ui/switch";
 
-export const InputForm = () => {
+interface InputFormProps {
+  setHistory: React.Dispatch<React.SetStateAction<History[]>>;
+}
+
+export const InputForm = ({setHistory}: InputFormProps) => {
   const [weight, setWeight] = useState<string>("");
   const [height, setHeight] = useState<string>("");
   const [result, setResult] = useState<string | null>(null);
   const [loading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [unit, setUnit] = useState<"metric" | "imperial">("metric");
 
   const handleBmiCalculation = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,34 +38,58 @@ export const InputForm = () => {
         throw new Error("Values must be greater than zero.");
       }
 
-      const bmiResult = bmiInMetric(userValues.weight, userValues.height);
+      const bmiResult = unit === "metric" ? bmiInMetric(userValues.weight, userValues.height) :  bmiInImperial(userValues.weight, userValues.height);
       setResult(bmiResult);
+
+      const newHistory: History = {
+        weight: userValues.weight,
+        height: userValues.height,
+        bmi: bmiResult,
+      };
+
+      const updatedHistory = [...JSON.parse(localStorage.getItem("history") || "[]"), newHistory];
+      localStorage.setItem("history", JSON.stringify(updatedHistory));
+      setHistory(updatedHistory); // Update UI immediately
     } catch (error: any) {
       setError(`Error: ${error.message}`);
     } finally {
       setIsLoading(false);
-      setHeight("");
-      setWeight("");
+      setTimeout(() => {
+        setHeight("");
+        setWeight("");
+      }, 500);
     }
   };
 
   return (
-    <Card className="w-[450px] bg-gray-800 shadow-lg p-6 rounded-lg">
+    <Card className="w-[450px] bg-gray-800 border-none p-6 rounded-lg">
       <CardHeader className="text-center">
         <CardTitle className="text-white text-2xl font-bold">
           BMI Calculator
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* {Unit Toggle } */}
+        <div className="flex justify-between items-center mb-6">
+            <Label className="text-gray-300 text-lg">Metric</Label>
+            <Switch 
+            checked={unit === "imperial"}
+            onCheckedChange={() => setUnit(unit === "metric" ? "imperial" : "metric")}
+            className="data-[state=checked]:bg-blue-600"
+            />
+            <Label className="text-gray-300 text-lg">Imperial</Label>
+        </div>
+
         <form onSubmit={handleBmiCalculation}>
           <div className="space-y-4">
+            {/* Weight Input */}
             <div className="flex flex-col">
               <Label htmlFor="weight" className="text-gray-300 text-lg">
-                Weight (KG)
+                Weight ({unit === "metric" ? "KG" : "lbs"})
               </Label>
               <Input
                 id="weight"
-                placeholder="Enter weight in KG"
+                placeholder={`Enter weight in ${unit === "metric" ? "KG" : "lbs"}`}
                 type="text"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
@@ -66,13 +97,14 @@ export const InputForm = () => {
               />
             </div>
 
+            {/* Height Input */}
             <div className="flex flex-col">
               <Label htmlFor="height" className="text-gray-300 text-lg">
-                Height (M)
+                Height ({unit === "metric" ? "M" : "inches"})
               </Label>
               <Input
                 id="height"
-                placeholder="Enter height in M"
+                placeholder={`Enter height in ${unit === "metric" ? "M" : "inches"}`}
                 type="text"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
